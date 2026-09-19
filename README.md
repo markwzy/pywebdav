@@ -14,6 +14,28 @@ pip install "git+https://github.com/markwzy/pywebdav.git"
 pip install .
 ```
 
+### 使用 uv 安装
+
+作为独立命令行工具安装：
+
+```bash
+uv tool install "git+https://github.com/markwzy/pywebdav.git"
+pywebdav --help
+```
+
+在另一个 uv 管理的 Python 项目中作为依赖使用：
+
+```bash
+uv add "pywebdav @ git+https://github.com/markwzy/pywebdav.git"
+```
+
+本仓库开发时，先创建同步的虚拟环境，再通过 uv 运行命令：
+
+```bash
+uv sync
+uv run pywebdav --help
+```
+
 ## 使用
 
 将连接地址和账户信息放在当前终端环境中。工具不读取或写入配置文件，不记录请求内容，也不会上传任何使用数据。
