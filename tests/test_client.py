@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 import unittest
+from pathlib import Path
+from tempfile import TemporaryDirectory
 
 from pywebdav.client import WebDAVClient, WebDAVError
+from pywebdav.mcp_server import NASOperations
 
 
 class Response:
@@ -44,6 +47,30 @@ class WebDAVClientTest(unittest.TestCase):
         entries = client.list("/")
         self.assertEqual(entries[0].path, "/dav/folder/")
         self.assertTrue(entries[0].is_directory)
+
+
+class NASOperationsTest(unittest.TestCase):
+    def test_local_paths_are_confined_to_configured_work_directory(self) -> None:
+        with TemporaryDirectory() as temporary_directory:
+            operations = NASOperations(WebDAVClient("https://nas.example/dav"), Path(temporary_directory))
+            self.assertEqual(
+                operations.local_path("exports/report.txt"),
+                (Path(temporary_directory) / "exports/report.txt").resolve(),
+            )
+            with self.assertRaises(ValueError):
+                operations.local_path("../secret.txt")
+            with self.assertRaises(ValueError):
+                operations.local_path("/tmp/secret.txt")
+
+    def test_upload_refuses_remote_overwrite_without_explicit_permission(self) -> None:
+        with TemporaryDirectory() as temporary_directory:
+            source = Path(temporary_directory) / "note.txt"
+            source.write_text("private", encoding="utf-8")
+            client = WebDAVClient("https://nas.example/dav")
+            client.session = Session(Response(200))  # type: ignore[assignment]
+            operations = NASOperations(client, Path(temporary_directory))
+            with self.assertRaisesRegex(ValueError, "overwrite"):
+                operations.upload("note.txt", "note.txt")
 
 
 if __name__ == "__main__":

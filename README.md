@@ -2,6 +2,8 @@
 
 一个用于 NAS 的轻量 WebDAV 命令行客户端，支持列目录、上传、下载、创建目录和删除。
 
+同时提供 MCP Server，可让配置过的 Agent 以受控工具操作 NAS。
+
 ## 安装
 
 ```bash
@@ -97,9 +99,40 @@ except WebDAVError as error:
     print(f"删除失败：{error}")
 ```
 
+## MCP Server
+
+`pywebdav-mcp` 通过 stdio 提供 `nas_list`、`nas_exists`、`nas_mkdir`、`nas_upload`、`nas_download` 和 `nas_delete` 工具。它只读取启动进程的环境变量；密码不会作为 MCP 工具参数传给 Agent。
+
+除 WebDAV 凭据外，必须配置一个本地工作目录。Agent 在上传和下载时只能使用此目录下的相对路径，不能访问其他本地文件；下载和上传默认也拒绝覆盖现有文件。
+
+```bash
+export WEBDAV_URL="https://nas.example.com:5006/webdav"
+export WEBDAV_USERNAME="your-name"
+export WEBDAV_PASSWORD="your-password"
+export PYWEBDAV_LOCAL_ROOT="$HOME/nas-agent-workspace"
+
+pywebdav-mcp
+```
+
+在 Codex 中添加为本地 stdio MCP Server：
+
+```bash
+codex mcp add pywebdav-nas -- pywebdav-mcp
+```
+
+随后在 Codex 配置文件的 `[mcp_servers.pywebdav-nas]` 段中加入以下两行，将已存在于本机环境的变量转发给服务器；不要把密码直接写入配置文件：
+
+```toml
+env_vars = ["WEBDAV_URL", "WEBDAV_USERNAME", "WEBDAV_PASSWORD", "PYWEBDAV_LOCAL_ROOT"]
+default_tools_approval_mode = "writes"
+```
+
+也可在 Codex 桌面应用的“设置 → MCP 服务器”中添加命令 `pywebdav-mcp`，并传入上述环境变量。删除工具会永久删除 NAS 项目，只应在用户明确要求时调用。
+
 ## 隐私与安全
 
 - 凭据仅保存在本次进程内，不写入磁盘、不输出到终端。
 - 不包含遥测、分析或自动联网功能；只会连接你指定的 WebDAV 地址。
 - WebDAV 请求拒绝跟随跨域重定向，避免认证头被带往意外站点。
 - 默认校验 HTTPS 证书。
+- MCP Server 将 WebDAV 根目录固定为启动时的 `WEBDAV_URL`，并将本地文件访问固定为 `PYWEBDAV_LOCAL_ROOT`。
