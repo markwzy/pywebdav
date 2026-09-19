@@ -38,6 +38,43 @@ pywebdav --url https://nas.example.com/webdav --username your-name ls /
 
 未提供密码时，程序会在终端安全询问。生产环境请保持 TLS 证书校验；仅在自签名证书已被确认可信时才使用 `--insecure`。
 
+## Python 代码使用
+
+应用程序可直接使用 `WebDAVClient`。建议仍通过环境变量提供凭据，避免把密码写入源码或提交到 Git。
+
+```python
+import os
+
+from pywebdav import WebDAVClient, WebDAVError
+
+client = WebDAVClient(
+    os.environ["WEBDAV_URL"],
+    os.environ["WEBDAV_USERNAME"],
+    os.environ["WEBDAV_PASSWORD"],
+)
+
+try:
+    # 列出目录；每项包含 path、size、modified 和 is_directory 等属性。
+    for item in client.list("/documents"):
+        print("目录" if item.is_directory else "文件", item.path, item.size)
+
+    client.mkdir("/documents/photos", parents=True)
+    client.upload("./photo.jpg", "/documents/photos/photo.jpg")
+    client.download("/documents/photos/photo.jpg", "./downloaded-photo.jpg")
+finally:
+    # 会话仅存在于当前进程；显式关闭可及时释放连接。
+    client.session.close()
+```
+
+服务端返回非预期状态时会抛出 `WebDAVError`，可按需处理：
+
+```python
+try:
+    client.delete("/documents/photos/old-photo.jpg")
+except WebDAVError as error:
+    print(f"删除失败：{error}")
+```
+
 ## 隐私与安全
 
 - 凭据仅保存在本次进程内，不写入磁盘、不输出到终端。
